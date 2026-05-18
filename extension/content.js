@@ -28,18 +28,14 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
     overlay.appendChild(modal);
     document.body.appendChild(overlay);
 
-    // --- EKRANI ÇİZME VE ORANTISAL GÜNCELLEME FONKSİYONU ---
     function render() {
-        let totalRawScore = 0; // Bulunan tüm öğelerin toplam ağırlığı
-        let exposedRawScore = 0; // Maskesi açılanların ağırlığı
+        let totalRawScore = 0;
+        let exposedRawScore = 0;
         let previewHTML = data.originalPrompt;
 
-        // 1. Önce toplam ağırlığı ve açığa çıkan ağırlığı hesapla
         matchState.forEach((m, index) => {
             totalRawScore += m.score;
-            if (!m.active) {
-                exposedRawScore += m.score; // Maske açıksa riske ekle
-            }
+            if (!m.active) exposedRawScore += m.score;
 
             let safeOriginal = m.original.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
             let regex = new RegExp(`\\b${safeOriginal}\\b`, 'g');
@@ -51,10 +47,7 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
             }
         });
 
-        // 2. KUSURSUZ YÜZDE HESAPLAMASI (Orantısal)
-        // Eğer hiçbir şey bulunamadıysa %0, bulunduysa (Açık Risk / Toplam Risk) * 100
         let currentRiskPercentage = totalRawScore > 0 ? Math.round((exposedRawScore / totalRawScore) * 100) : 0;
-
         let riskColor = currentRiskPercentage > 50 ? "#FF3B30" : (currentRiskPercentage > 0 ? "#FF9500" : "#34C759");
         let btnColor = currentRiskPercentage > 0 ? "#FF3B30" : "#ffffff";
         let btnTextColor = currentRiskPercentage > 0 ? "#ffffff" : "#1e1e24";
@@ -74,13 +67,10 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
                     <div style="font-size: 24px; font-weight: bold; color: ${riskColor};">%${currentRiskPercentage}</div>
                 </div>
             </div>
-            
             <p style="font-size: 13px; color: #b0b0b0; margin: 0;">Metin içinde bulunan hassas veriler maskelendi. <strong style="color:#fff;">Maskeleri açmak verinin dışarı sızma riskini artırır.</strong> Etiketlere tıklayarak maskeleri yönetebilirsiniz.</p>
-            
             <div style="background: #15151a; border-radius: 8px; padding: 15px; border: 1px solid #2b2b36; font-size: 14px; line-height: 1.6; color: #e0e0e0; max-height: 200px; overflow-y: auto;">
                 ${previewHTML}
             </div>
-            
             <div style="display: flex; justify-content: flex-end; gap: 12px; margin-top: 10px;">
                 <button id="ps-cancel-btn" style="padding: 10px 18px; background: transparent; border: 1px solid #555; color: #ccc; border-radius: 6px; cursor: pointer; font-weight: 600;">İptal</button>
                 <button id="ps-send-btn" style="padding: 10px 18px; background: ${btnColor}; border: none; color: ${btnTextColor}; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s;">${btnText}</button>
@@ -109,7 +99,7 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
                 }
             });
 
-            if (activeElement.tagName.toLowerCase() === 'textarea') {
+            if (activeElement.tagName && activeElement.tagName.toLowerCase() === 'textarea') {
                 activeElement.value = finalPrompt;
                 activeElement.dispatchEvent(new Event('input', { bubbles: true }));
             } else if (activeElement.hasAttribute('contenteditable')) {
@@ -119,14 +109,15 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
             }
             
             document.body.removeChild(overlay);
-
             skipNextTrigger = true;
+            
             setTimeout(() => {
-                if (triggerType === 'click' && targetBtn) targetBtn.click();
-                else {
+                if (triggerType === 'click' && targetBtn) {
+                    targetBtn.click();
+                } else {
                     let sendBtn = document.querySelector('button[data-testid="send-button"]') || 
                                   document.querySelector('button[aria-label*="end"], button[aria-label*="önder"], button.send-button');
-                    if (sendBtn) sendBtn.click();
+                    if (sendBtn && !sendBtn.disabled) sendBtn.click();
                     else activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
                 }
             }, 150);
@@ -134,6 +125,14 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
     }
 
     render();
+}
+
+// AI Chat giriş alanlarını güvenilir şekilde bulan yardımcı
+function getChatInput() {
+    return document.querySelector('#prompt-textarea') || 
+           document.querySelector('rich-textarea') || 
+           document.querySelector('textarea') || 
+           document.querySelector('[contenteditable="true"]');
 }
 
 function checkAndMask(userPrompt, activeElement, originalEvent, triggerType, targetBtn) {
@@ -148,13 +147,11 @@ function checkAndMask(userPrompt, activeElement, originalEvent, triggerType, tar
     originalEvent.stopImmediatePropagation();
 
     isProcessing = true;
-    console.log("🚨 OneTech: Prompt inceleniyor...");
 
     chrome.runtime.sendMessage({ action: "checkPrompt", prompt: userPrompt }, function(response) {
         isProcessing = false;
 
         if (chrome.runtime.lastError || !response || response.error) {
-            console.error("Backend bağlantı hatası!");
             skipNextTrigger = true;
             if (triggerType === 'click' && targetBtn) targetBtn.click();
             else activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
@@ -169,7 +166,7 @@ function checkAndMask(userPrompt, activeElement, originalEvent, triggerType, tar
             else {
                 let sendBtn = document.querySelector('button[data-testid="send-button"]') || 
                               document.querySelector('button[aria-label*="end"], button[aria-label*="önder"], button.send-button');
-                if (sendBtn) sendBtn.click();
+                if (sendBtn && !sendBtn.disabled) sendBtn.click();
                 else activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
             }
         }
@@ -179,9 +176,13 @@ function checkAndMask(userPrompt, activeElement, originalEvent, triggerType, tar
 document.addEventListener('keydown', function(e) {
     if (e.key === 'Enter' && !e.shiftKey) {
         if (skipNextTrigger) { skipNextTrigger = false; return; }
-        let activeElement = document.activeElement;
-        let userPrompt = (activeElement.tagName.toLowerCase() === 'textarea') ? activeElement.value : (activeElement.innerText || activeElement.textContent);
-        if(userPrompt && userPrompt.trim() !== "") checkAndMask(userPrompt, activeElement, e, 'enter', null);
+        let inputElement = getChatInput();
+        if(inputElement && (e.target === inputElement || inputElement.contains(e.target))) {
+            let userPrompt = (inputElement.tagName.toLowerCase() === 'textarea') ? inputElement.value : (inputElement.innerText || inputElement.textContent);
+            if(userPrompt && userPrompt.trim() !== "") {
+                checkAndMask(userPrompt, inputElement, e, 'enter', null);
+            }
+        }
     }
 }, true);
 
@@ -189,10 +190,12 @@ document.addEventListener('click', function(e) {
     if (skipNextTrigger) { skipNextTrigger = false; return; }
     let sendBtn = e.target.closest('button[data-testid="send-button"], button[aria-label*="end"], button[aria-label*="önder"], button.send-button');
     if (sendBtn) {
-        let activeElement = document.querySelector('textarea') || document.querySelector('[contenteditable="true"]');
-        if(activeElement) {
-            let userPrompt = (activeElement.tagName.toLowerCase() === 'textarea') ? activeElement.value : (activeElement.innerText || activeElement.textContent);
-            if(userPrompt && userPrompt.trim() !== "") checkAndMask(userPrompt, activeElement, e, 'click', sendBtn);
+        let inputElement = getChatInput();
+        if(inputElement) {
+            let userPrompt = (inputElement.tagName.toLowerCase() === 'textarea') ? inputElement.value : (inputElement.innerText || inputElement.textContent);
+            if(userPrompt && userPrompt.trim() !== "") {
+                checkAndMask(userPrompt, inputElement, e, 'click', sendBtn);
+            }
         }
     }
 }, true);

@@ -9,11 +9,9 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(bodyParser.json());
 
-// --- KURUMSAL HAFIZA (Artık Dinamik!) ---
+// --- KURUMSAL HAFIZA (Dinamik ve Temiz) ---
 let customDictionary = {
-    people: ["Tim Cook", "Satya Nadella", "Ayşe Yılmaz", "Elon Musk", "Mehmet Demir", "Zeynep Kaya"],
-    companies: ["Apple", "Tesla", "SpaceX", "Amazon", "Microsoft", "Google"],
-    customRules: ["Pegasus Projesi"] // Dashboard'dan buraya anlık ekleme yapacağız!
+    customRules: [] // Dashboard'dan anlık ekleme yapılacak boş liste
 };
 
 // --- DASHBOARD İSTATİSTİKLERİ ---
@@ -25,13 +23,13 @@ let systemStats = {
 
 function analyzeText(text) {
     let allMatches = [];
-    systemStats.totalScanned++; // Her prompt geldiğinde sayacı artır
+    systemStats.totalScanned++;
 
     function addTempMatch(original, mask, score, type, startIndex, endIndex, categoryKey) {
         allMatches.push({ original, mask, score, type, startIndex, endIndex, categoryKey });
     }
 
-    // 1. DASHBOARD'DAN EKLENEN ÖZEL KURALLAR (En Yüksek Öncelik)
+    // 1. ÖZEL KURALLAR
     customDictionary.customRules.forEach(rule => {
         let regex = new RegExp(`\\b${rule}\\b`, 'gi');
         let match;
@@ -56,20 +54,7 @@ function analyzeText(text) {
         addTempMatch(match[0], "[TC_KIMLIK]", 45, "TC Kimlik", match.index, match.index + match[0].length, "tc");
     }
 
-    customDictionary.people.forEach(person => {
-        let regex = new RegExp(`\\b${person}\\b`, 'gi');
-        while ((match = regex.exec(text)) !== null) {
-            addTempMatch(match[0], "[KİŞİ]", 15, "Kişi", match.index, match.index + match[0].length, "person");
-        }
-    });
-
-    customDictionary.companies.forEach(company => {
-        let regex = new RegExp(`\\b${company}\\b`, 'gi');
-        while ((match = regex.exec(text)) !== null) {
-            addTempMatch(match[0], "[ŞİRKET]", 25, "Şirket", match.index, match.index + match[0].length, "company");
-        }
-    });
-
+    // Doğal Dil İşleme (NLP) ile Kişi ve Kurum Tespiti
     let doc = nlp(text);
     doc.people().out('array').forEach(p => {
         let regex = new RegExp(`\\b${p}\\b`, 'gi');
@@ -97,7 +82,6 @@ function analyzeText(text) {
         if (!isOverlapping) {
             if(!finalMatches.find(m => m.original === currentMatch.original)) {
                 finalMatches.push(currentMatch);
-                // İSTATİSTİKLERİ GÜNCELLE
                 systemStats.totalMaskedItems++;
                 if (systemStats.categories[currentMatch.categoryKey] !== undefined) {
                     systemStats.categories[currentMatch.categoryKey]++;
@@ -106,33 +90,23 @@ function analyzeText(text) {
         }
     });
 
-    return {
-        originalPrompt: text,
-        matches: finalMatches
-    };
+    return { originalPrompt: text, matches: finalMatches };
 }
 
-// 1. Eklentiden Gelen Metinleri Tarama API'si
 app.post('/api/protect', (req, res) => {
     const { prompt } = req.body;
     if (!prompt) return res.status(400).json({ error: "Prompt gerekli." });
     res.json(analyzeText(prompt));
 });
 
-// 2. Dashboard İçin İstatistik API'si
 app.get('/api/stats', (req, res) => {
-    res.json({
-        stats: systemStats,
-        rules: customDictionary.customRules
-    });
+    res.json({ stats: systemStats, rules: customDictionary.customRules });
 });
 
-// 3. Dashboard'dan Yeni Kural Ekleme API'si
 app.post('/api/add-rule', (req, res) => {
     const { newRule } = req.body;
     if (newRule && !customDictionary.customRules.includes(newRule)) {
         customDictionary.customRules.push(newRule);
-        console.log("🟢 Yeni Kural Eklendi:", newRule);
         res.json({ success: true, message: "Kural eklendi." });
     } else {
         res.status(400).json({ success: false, message: "Geçersiz veya zaten var." });
@@ -140,5 +114,5 @@ app.post('/api/add-rule', (req, res) => {
 });
 
 app.listen(PORT, () => {
-    console.log(`🚀 OneTech Merkezi Sunucusu çalışıyor: http://localhost:${PORT}`);
+    console.log(`🚀 OneTech Merkezi Sunucusu çalışıyor: PORT ${PORT}`);
 });
