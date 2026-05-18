@@ -1,7 +1,7 @@
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === "checkPrompt") {
         
-        fetch('http://localhost:3000/api/protect', {
+        fetch('https://onetech-api-rut0.onrender.com/api/protect', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ prompt: request.prompt })

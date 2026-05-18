@@ -88,19 +88,18 @@
     <!-- DASHBOARD JAVASCRIPT KODLARI -->
     <script>
         let myChart = null;
+        const API_BASE_URL = 'https://onetech-api-rut0.onrender.com';
 
         // Backend'den verileri çeken fonksiyon
         async function fetchDashboardData() {
             try {
-                const response = await fetch('http://localhost:3000/api/stats');
+                const response = await fetch(`${API_BASE_URL}/api/stats`);
                 const data = await response.json();
                 
-                // Üst kartları güncelle
                 document.getElementById('stat-scanned').innerText = data.stats.totalScanned;
                 document.getElementById('stat-masked').innerText = data.stats.totalMaskedItems;
                 document.getElementById('stat-rules').innerText = data.rules.length;
 
-                // Kurallar listesini güncelle
                 const rulesList = document.getElementById('rulesList');
                 rulesList.innerHTML = '';
                 data.rules.forEach(rule => {
@@ -110,9 +109,7 @@
                     </li>`;
                 });
 
-                // Grafiği güncelle
                 updateChart(data.stats.categories);
-
             } catch (error) {
                 console.error("Sunucuya bağlanılamadı!", error);
             }
@@ -126,16 +123,15 @@
             if (!rule) return;
 
             try {
-                await fetch('http://localhost:3000/api/add-rule', {
+                await fetch(`${API_BASE_URL}/api/add-rule`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ newRule: rule })
                 });
                 input.value = '';
-                fetchDashboardData(); // Ekranı yenile
+                fetchDashboardData(); 
                 
-                // Eğlenceli bir alert (Hackathon ruhu)
-                alert(`🛡️ Başarılı! "${rule}" kelimesi OneTech güvenlik ağına eklendi. Artık hiçbir çalışan bu veriyi dışarı çıkaramaz.`);
+                alert(`🛡️ Başarılı! "${rule}" kelimesi OneTech güvenlik ağına eklendi.`);
             } catch (error) {
                 alert("Hata: Sunucuya bağlanılamadı.");
             }
@@ -149,11 +145,9 @@
             ];
 
             if (myChart) {
-                // Grafik zaten varsa silme, sadece verileri sessizce güncelle
                 myChart.data.datasets[0].data = chartData;
                 myChart.update('none'); 
             } else {
-                // Sayfa ilk yüklendiğinde grafiği sıfırdan çiz
                 const ctx = document.getElementById('riskChart').getContext('2d');
                 myChart = new Chart(ctx, {
                     type: 'doughnut',
@@ -175,10 +169,8 @@
             }
         }
 
-        // Sayfa açıldığında ve her 3 saniyede bir verileri çek (Canlı Dashboard Hissi)
         fetchDashboardData();
         setInterval(fetchDashboardData, 3000);
-
     </script>
 </body>
 </html>
