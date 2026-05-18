@@ -134,6 +134,7 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
     render();
 }
 
+// AI Chat giriş alanlarını güvenilir şekilde bulan yardımcı
 function getChatInput() {
     return document.querySelector('#prompt-textarea') || 
            document.querySelector('rich-textarea') || 
@@ -141,7 +142,8 @@ function getChatInput() {
            document.querySelector('[contenteditable="true"]');
 }
 
-function checkAndMask(userPrompt, activeElement, originalEvent, triggerType, targetBtn) {
+// SARI UYARIYI ENGELLEYEN ASENKRON PROMISE ALTYAPISI
+async function checkAndMask(userPrompt, activeElement, originalEvent, triggerType, targetBtn) {
     if (isProcessing) {
         originalEvent.preventDefault();
         originalEvent.stopPropagation();
@@ -154,18 +156,27 @@ function checkAndMask(userPrompt, activeElement, originalEvent, triggerType, tar
 
     isProcessing = true;    
     
-    // NİZAMİ SATIR GÜNCELLEMESİ (SARI LOG UYARISI GİDERİLDİ)
-    chrome.runtime.sendMessage({ action: "checkPrompt", prompt: userPrompt }, function(response) {
+    try {
+        const response = await new Promise((resolve) => {
+            chrome.runtime.sendMessage({ action: "checkPrompt", prompt: userPrompt }, (res) => {
+                if (chrome.runtime.lastError) {
+                    resolve({ error: true });
+                } else {
+                    resolve(res);
+                }
+            });
+        });
+
         isProcessing = false;
 
-        if (chrome.runtime.lastError || !response || response.error) {
+        if (!response || response.error) {
             skipNextTrigger = true;
             if (triggerType === 'click' && targetBtn) targetBtn.click();
             else activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
             return;
         }
 
-        if(response.matches && response.matches.length > 0) {
+        if (response.matches && response.matches.length > 0) {
             showInteractiveModal(response, activeElement, triggerType, targetBtn);
         } else {
             skipNextTrigger = true; 
@@ -177,7 +188,10 @@ function checkAndMask(userPrompt, activeElement, originalEvent, triggerType, tar
                 else activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
             }
         }
-    });
+    } catch (err) {
+        isProcessing = false;
+        console.error("OneTech Hata Yakalama:", err);
+    }
 }
 
 document.addEventListener('keydown', function(e) {
