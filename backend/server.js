@@ -113,6 +113,18 @@ app.post('/api/add-rule', (req, res) => {
     }
 });
 
+app.post('/api/delete-rule', (req, res) => {
+    const { ruleToDelete } = req.body;
+    const index = customDictionary.customRules.indexOf(ruleToDelete);
+    if (index > -1) {
+        customDictionary.customRules.splice(index, 1);
+        console.log("🔴 Kural Silindi:", ruleToDelete);
+        res.json({ success: true, message: "Kural silindi." });
+    } else {
+        res.status(404).json({ success: false, message: "Kural bulunamadı." });
+    }
+});
+
 app.listen(PORT, () => {
     console.log(`🚀 OneTech Merkezi Sunucusu çalışıyor: PORT ${PORT}`);
 });

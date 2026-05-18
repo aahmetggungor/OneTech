@@ -103,9 +103,16 @@
                 const rulesList = document.getElementById('rulesList');
                 rulesList.innerHTML = '';
                 data.rules.forEach(rule => {
-                    rulesList.innerHTML += `<li class="bg-slate-700/50 text-slate-300 px-3 py-2 rounded flex justify-between items-center border border-slate-600/50">
+                    rulesList.innerHTML += `<li class="bg-slate-700/50 text-slate-300 px-3 py-2 rounded flex justify-between items-center border border-slate-600/50 hover:bg-slate-700 transition-colors">
                         <span class="font-mono text-sm">${rule}</span>
-                        <span class="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">Aktif</span>
+                        <div class="flex items-center gap-3">
+                            <span class="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">Aktif</span>
+                            <button onclick="deleteRule('${rule}')" class="text-slate-400 hover:text-red-400 transition-colors" title="Kuralı Sil">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                            </button>
+                        </div>
                     </li>`;
                 });
 
@@ -130,14 +137,29 @@
                 });
                 input.value = '';
                 fetchDashboardData(); 
-                
-                alert(`🛡️ Başarılı! "${rule}" kelimesi OneTech güvenlik ağına eklendi.`);
             } catch (error) {
                 alert("Hata: Sunucuya bağlanılamadı.");
             }
         }
 
-        // Chart.js Grafik Ayarları (Zarif Güncelleme)
+        // Kural Silme Fonksiyonu
+        async function deleteRule(rule) {
+            // Yanlışlıkla silinmesini engellemek için küçük bir onay penceresi
+            if(!confirm(`"${rule}" kuralını silmek istediğinize emin misiniz?`)) return;
+            
+            try {
+                await fetch(`${API_BASE_URL}/api/delete-rule`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ruleToDelete: rule })
+                });
+                fetchDashboardData(); // Listeyi anında güncelle
+            } catch (error) {
+                alert("Hata: Kural silinemedi.");
+            }
+        }
+
+        // Chart.js Grafik Ayarları
         function updateChart(categories) {
             const chartData = [
                 categories.tc, categories.email, categories.phone, 

@@ -99,18 +99,28 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
                 }
             });
 
-            if (activeElement.tagName && activeElement.tagName.toLowerCase() === 'textarea') {
-                activeElement.value = finalPrompt;
-                activeElement.dispatchEvent(new Event('input', { bubbles: true }));
-            } else if (activeElement.hasAttribute('contenteditable')) {
-                activeElement.focus();
+            // GEMINI ÇÖZÜMÜ: Eğer ana element contenteditable değilse, içindeki asıl metin kutusunu bul
+            let targetNode = activeElement;
+            if (activeElement.tagName && activeElement.tagName.toLowerCase() !== 'textarea' && !activeElement.hasAttribute('contenteditable')) {
+                let innerEditable = activeElement.querySelector('[contenteditable="true"]');
+                if (innerEditable) targetNode = innerEditable;
+            }
+
+            // Metni Güvenli Bir Şekilde Yerleştir
+            if (targetNode.tagName && targetNode.tagName.toLowerCase() === 'textarea') {
+                targetNode.value = finalPrompt;
+                targetNode.dispatchEvent(new Event('input', { bubbles: true }));
+            } else {
+                targetNode.focus();
                 document.execCommand('selectAll', false, null);
                 document.execCommand('insertText', false, finalPrompt);
+                targetNode.dispatchEvent(new Event('input', { bubbles: true, composed: true }));
             }
             
             document.body.removeChild(overlay);
             skipNextTrigger = true;
             
+            // GEMINI ÇÖZÜMÜ: Metnin eklendiğinden emin olmak için bekleme süresi 150ms'den 300ms'ye çıkarıldı
             setTimeout(() => {
                 if (triggerType === 'click' && targetBtn) {
                     targetBtn.click();
@@ -120,7 +130,7 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
                     if (sendBtn && !sendBtn.disabled) sendBtn.click();
                     else activeElement.dispatchEvent(new KeyboardEvent('keydown', {key: 'Enter', bubbles: true}));
                 }
-            }, 150);
+            }, 300);
         });
     }
 
