@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OneTech Yönetim Paneli</title>
+    <!-- Tailwind CSS (Hızlı ve şık tasarım için) -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js (Grafikler için) -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body { background-color: #0f172a; color: #f8fafc; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        .glass-card { background: rgba(30, 41, 59, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1); }
+    </style>
+</head>
+<body class="min-h-screen p-8">
+
+    <div class="max-w-6xl mx-auto">
+        <!-- HEADER -->
+        <header class="flex justify-between items-center mb-10 border-b border-slate-700 pb-5">
+            <div class="flex items-center gap-3">
+                <span class="text-4xl">🛡️</span>
+                <div>
+                    <h1 class="text-3xl font-bold tracking-wider text-white">OneTech</h1>
+                    <p class="text-slate-400 text-sm">Kurumsal Veri Kaybı Önleme (DLP) Merkezi</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-4">
+                <span class="flex h-3 w-3 relative">
+                    <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
+                    <span class="relative inline-flex rounded-full h-3 w-3 bg-green-500"></span>
+                </span>
+                <span class="text-sm font-semibold text-green-400">Sistem Aktif & İzleniyor</span>
+            </div>
+        </header>
+
+        <!-- ÜST İSTATİSTİK KARTLARI -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-10">
+            <div class="glass-card rounded-xl p-6">
+                <h3 class="text-slate-400 text-sm font-semibold uppercase mb-2">Taranan Toplam Prompt</h3>
+                <div class="text-4xl font-bold text-blue-400" id="stat-scanned">0</div>
+            </div>
+            <div class="glass-card rounded-xl p-6">
+                <h3 class="text-slate-400 text-sm font-semibold uppercase mb-2">Engellenen Hassas Veri</h3>
+                <div class="text-4xl font-bold text-red-500" id="stat-masked">0</div>
+            </div>
+            <div class="glass-card rounded-xl p-6">
+                <h3 class="text-slate-400 text-sm font-semibold uppercase mb-2">Aktif Özel Kural Sayısı</h3>
+                <div class="text-4xl font-bold text-purple-400" id="stat-rules">0</div>
+            </div>
+        </div>
+
+        <!-- ANA İÇERİK: GRAFİK VE KURAL MOTORU -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+            
+            <!-- SOL: GRAFİK -->
+            <div class="glass-card rounded-xl p-6">
+                <h2 class="text-xl font-bold mb-6 text-white border-b border-slate-700 pb-2">Engelleme Dağılımı</h2>
+                <!-- CHART.JS BUG'INI ÖNLEYEN SABİT KUTU (DELİ GÖMLEĞİ) -->
+                <div style="position: relative; height: 260px; width: 100%;">
+                    <canvas id="riskChart"></canvas>
+                </div>
+            </div>
+
+            <!-- SAĞ: DİNAMİK KURAL MOTORU -->
+            <div class="glass-card rounded-xl p-6 flex flex-col">
+                <h2 class="text-xl font-bold mb-2 text-white border-b border-slate-700 pb-2">Özel Veri/Proje Engelleme</h2>
+                <p class="text-sm text-slate-400 mb-6">Sistemin algılamasını istediğiniz gizli proje isimlerini veya VIP müşteri kodlarını buraya ekleyin. (Örn: Omega Projesi)</p>
+                
+                <div class="flex gap-3 mb-6">
+                    <input type="text" id="newRuleInput" placeholder="Engellenecek kelimeyi yazın..." class="flex-1 bg-slate-800 border border-slate-600 rounded-lg px-4 py-2 text-white focus:outline-none focus:border-blue-500 transition">
+                    <button onclick="addNewRule()" class="bg-blue-600 hover:bg-blue-500 text-white font-bold py-2 px-6 rounded-lg transition shadow-lg shadow-blue-900/50">
+                        Kural Ekle
+                    </button>
+                </div>
+
+                <div class="flex-1 bg-slate-800/50 rounded-lg border border-slate-700 p-4 overflow-y-auto" style="max-height: 200px;">
+                    <h3 class="text-xs text-slate-500 uppercase font-bold mb-3 tracking-wider">Aktif Kurallar Listesi</h3>
+                    <ul id="rulesList" class="space-y-2">
+                        <!-- JS ile buraya kurallar gelecek -->
+                    </ul>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- DASHBOARD JAVASCRIPT KODLARI -->
+    <script>
+        let myChart = null;
+
+        // Backend'den verileri çeken fonksiyon
+        async function fetchDashboardData() {
+            try {
+                const response = await fetch('http://localhost:3000/api/stats');
+                const data = await response.json();
+                
+                // Üst kartları güncelle
+                document.getElementById('stat-scanned').innerText = data.stats.totalScanned;
+                document.getElementById('stat-masked').innerText = data.stats.totalMaskedItems;
+                document.getElementById('stat-rules').innerText = data.rules.length;
+
+                // Kurallar listesini güncelle
+                const rulesList = document.getElementById('rulesList');
+                rulesList.innerHTML = '';
+                data.rules.forEach(rule => {
+                    rulesList.innerHTML += `<li class="bg-slate-700/50 text-slate-300 px-3 py-2 rounded flex justify-between items-center border border-slate-600/50">
+                        <span class="font-mono text-sm">${rule}</span>
+                        <span class="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded">Aktif</span>
+                    </li>`;
+                });
+
+                // Grafiği güncelle
+                updateChart(data.stats.categories);
+
+            } catch (error) {
+                console.error("Sunucuya bağlanılamadı!", error);
+            }
+        }
+
+        // Yeni Kural Ekleme Fonksiyonu
+        async function addNewRule() {
+            const input = document.getElementById('newRuleInput');
+            const rule = input.value.trim();
+            
+            if (!rule) return;
+
+            try {
+                await fetch('http://localhost:3000/api/add-rule', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ newRule: rule })
+                });
+                input.value = '';
+                fetchDashboardData(); // Ekranı yenile
+                
+                // Eğlenceli bir alert (Hackathon ruhu)
+                alert(`🛡️ Başarılı! "${rule}" kelimesi OneTech güvenlik ağına eklendi. Artık hiçbir çalışan bu veriyi dışarı çıkaramaz.`);
+            } catch (error) {
+                alert("Hata: Sunucuya bağlanılamadı.");
+            }
+        }
+
+        // Chart.js Grafik Ayarları (Zarif Güncelleme)
+        function updateChart(categories) {
+            const chartData = [
+                categories.tc, categories.email, categories.phone, 
+                categories.company, categories.person, categories.custom
+            ];
+
+            if (myChart) {
+                // Grafik zaten varsa silme, sadece verileri sessizce güncelle
+                myChart.data.datasets[0].data = chartData;
+                myChart.update('none'); 
+            } else {
+                // Sayfa ilk yüklendiğinde grafiği sıfırdan çiz
+                const ctx = document.getElementById('riskChart').getContext('2d');
+                myChart = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: ['TC Kimlik', 'E-Posta', 'Telefon', 'Şirketler', 'Kişiler', 'Özel Kurallar'],
+                        datasets: [{
+                            data: chartData,
+                            backgroundColor: ['#EF4444', '#3B82F6', '#10B981', '#F59E0B', '#8B5CF6', '#EC4899'],
+                            borderWidth: 0,
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { legend: { position: 'right', labels: { color: '#cbd5e1' } } }
+                    }
+                });
+            }
+        }
+
+        // Sayfa açıldığında ve her 3 saniyede bir verileri çek (Canlı Dashboard Hissi)
+        fetchDashboardData();
+        setInterval(fetchDashboardData, 3000);
+
+    </script>
+</body>
+</html>

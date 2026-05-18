@@ -1,0 +1,31 @@
+{
+  "manifest_version": 3,
+  "name": "OneTech: AI Güvenlik Kalkanı",
+  "version": "1.0",
+  "description": "Yapay zeka araçlarına gönderilen hassas verileri anında maskeler ve şirket veri güvenliğini sağlar.",
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "https://chatgpt.com/*",
+    "https://gemini.google.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://chatgpt.com/*", 
+        "https://gemini.google.com/*"
+      ],
+      "js": ["content.js"]
+    }
+  ]
+}
