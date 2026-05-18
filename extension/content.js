@@ -99,14 +99,12 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
                 }
             });
 
-            // GEMINI ÇÖZÜMÜ: Eğer ana element contenteditable değilse, içindeki asıl metin kutusunu bul
             let targetNode = activeElement;
             if (activeElement.tagName && activeElement.tagName.toLowerCase() !== 'textarea' && !activeElement.hasAttribute('contenteditable')) {
                 let innerEditable = activeElement.querySelector('[contenteditable="true"]');
                 if (innerEditable) targetNode = innerEditable;
             }
 
-            // Metni Güvenli Bir Şekilde Yerleştir
             if (targetNode.tagName && targetNode.tagName.toLowerCase() === 'textarea') {
                 targetNode.value = finalPrompt;
                 targetNode.dispatchEvent(new Event('input', { bubbles: true }));
@@ -120,7 +118,6 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
             document.body.removeChild(overlay);
             skipNextTrigger = true;
             
-            // GEMINI ÇÖZÜMÜ: Metnin eklendiğinden emin olmak için bekleme süresi 150ms'den 300ms'ye çıkarıldı
             setTimeout(() => {
                 if (triggerType === 'click' && targetBtn) {
                     targetBtn.click();
@@ -137,7 +134,6 @@ function showInteractiveModal(data, activeElement, triggerType, targetBtn) {
     render();
 }
 
-// AI Chat giriş alanlarını güvenilir şekilde bulan yardımcı
 function getChatInput() {
     return document.querySelector('#prompt-textarea') || 
            document.querySelector('rich-textarea') || 
@@ -156,8 +152,9 @@ function checkAndMask(userPrompt, activeElement, originalEvent, triggerType, tar
     originalEvent.stopPropagation();
     originalEvent.stopImmediatePropagation();
 
-    isProcessing = true;
-
+    isProcessing = true;    
+    
+    // NİZAMİ SATIR GÜNCELLEMESİ (SARI LOG UYARISI GİDERİLDİ)
     chrome.runtime.sendMessage({ action: "checkPrompt", prompt: userPrompt }, function(response) {
         isProcessing = false;
 
